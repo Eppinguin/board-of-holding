@@ -1,6 +1,7 @@
 import esbuild from "esbuild";
 import process from "process";
 import { builtinModules } from 'node:module';
+import esbuildSvelte from "esbuild-svelte";
 
 const banner =
 `/*
@@ -17,6 +18,8 @@ const context = await esbuild.context({
 	},
 	entryPoints: ["src/main.ts"],
 	bundle: true,
+	mainFields: ["svelte", "browser", "module", "main"],
+	conditions: ["svelte", "browser"],
 	external: [
 		"obsidian",
 		"electron",
@@ -39,6 +42,14 @@ const context = await esbuild.context({
 	treeShaking: true,
 	outfile: "main.js",
 	minify: prod,
+	plugins: [
+		esbuildSvelte({
+			compilerOptions: {
+				dev: !prod,
+				css: "injected"
+			}
+		})
+	]
 });
 
 if (prod) {
