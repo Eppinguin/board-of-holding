@@ -6,8 +6,7 @@ import type {
 	NoteCardConfig,
 	RandomCardConfig,
 	ScreenLayout,
-	SearchCardConfig,
-	WebEmbedCardConfig
+	SearchCardConfig
 } from "../core/cards/card-types";
 import type { LayoutStore } from "../core/layout/layout-store";
 import type { SearchResult } from "../core/search/SearchTypes";

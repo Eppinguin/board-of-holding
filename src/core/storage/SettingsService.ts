@@ -30,7 +30,7 @@ export class SettingsService {
 		const loaded = (await this.plugin.loadData()) as Partial<GMScreenSettings> | null;
 		this.settings = {
 			...DEFAULT_SETTINGS,
-			...(loaded ?? {})
+			...loaded
 		};
 		return this.settings;
 	}

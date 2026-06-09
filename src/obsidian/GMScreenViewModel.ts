@@ -115,7 +115,7 @@ export class GMScreenViewModel implements GMScreenController {
 			y,
 			w: definition.defaultSize.w,
 			h: definition.defaultSize.h,
-			config: definition.validateConfig({ ...definition.defaultConfig, ...(config ?? {}) })
+			config: definition.validateConfig({ ...definition.defaultConfig, ...config })
 		};
 
 		this.layoutStore.addCard(newCard as ScreenCard);
