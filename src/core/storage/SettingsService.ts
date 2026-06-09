@@ -1,50 +1,44 @@
 import type { Plugin } from "obsidian";
+import type { ScreenLayout } from "../cards/card-types";
 
-export type GMScreenSettings = {
+export type GMScreenData = {
 	lastOpenedScreenId: string | null;
-	layoutFolder: string;
-	searchFolders: string[];
-	preferredSearchFolders: string[];
-	archiveFolders: string[];
-	defaultNoteFolder: string;
+	screens: Record<string, ScreenLayout>;
 };
 
-export const DEFAULT_SETTINGS: GMScreenSettings = {
+const DEFAULT_DATA: GMScreenData = {
 	lastOpenedScreenId: null,
-	layoutFolder: "_GM Screens",
-	searchFolders: [],
-	preferredSearchFolders: [],
-	archiveFolders: ["Archive", "Daily"] as string[],
-	defaultNoteFolder: ""
+	screens: {}
 };
 
 export class SettingsService {
 	private readonly plugin: Plugin;
-	private settings: GMScreenSettings = { ...DEFAULT_SETTINGS };
+	private data: GMScreenData = { ...DEFAULT_DATA };
 
 	constructor(plugin: Plugin) {
 		this.plugin = plugin;
 	}
 
-	async load(): Promise<GMScreenSettings> {
-		const loaded = (await this.plugin.loadData()) as Partial<GMScreenSettings> | null;
-		this.settings = {
-			...DEFAULT_SETTINGS,
-			...loaded
+	async load(): Promise<GMScreenData> {
+		const loaded = (await this.plugin.loadData()) as Partial<GMScreenData> | null;
+		this.data = {
+			...DEFAULT_DATA,
+			...loaded,
+			screens: (loaded as GMScreenData | null)?.screens ?? {}
 		};
-		return this.settings;
+		return this.data;
 	}
 
-	get(): GMScreenSettings {
-		return this.settings;
+	get(): GMScreenData {
+		return this.data;
 	}
 
-	async update(patch: Partial<GMScreenSettings>): Promise<GMScreenSettings> {
-		this.settings = {
-			...this.settings,
+	async update(patch: Partial<GMScreenData>): Promise<GMScreenData> {
+		this.data = {
+			...this.data,
 			...patch
 		};
-		await this.plugin.saveData(this.settings);
-		return this.settings;
+		await this.plugin.saveData(this.data);
+		return this.data;
 	}
 }

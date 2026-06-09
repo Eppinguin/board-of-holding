@@ -2,6 +2,7 @@
 	import type { Component } from "obsidian";
 	import Screen from "./Screen.svelte";
 	import CardPalette from "./components/CardPalette.svelte";
+	import ScreenSwitcher from "./components/ScreenSwitcher.svelte";
 	import type { GMScreenController } from "./controller";
 
 	const { controller, hostComponent }: { controller: GMScreenController; hostComponent: Component } = $props();
@@ -13,6 +14,8 @@
 <div class="gm-screen-app">
 	<div class="gm-screen-toolbar">
 		<div class="gm-screen-toolbar-left">
+			<ScreenSwitcher {controller} {editMode} />
+			<div class="gm-toolbar-divider"></div>
 			<button
 				class="gm-toolbar-btn {editMode ? 'gm-toolbar-btn--active' : ''}"
 				title={editMode ? "Exit edit mode" : "Edit layout"}

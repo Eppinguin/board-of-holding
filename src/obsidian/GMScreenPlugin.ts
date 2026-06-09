@@ -8,21 +8,18 @@ import {
 	type WorkspaceLeaf
 } from "obsidian";
 import type { CardType } from "../core/cards/card-types";
-import { DEFAULT_SETTINGS, SettingsService, type GMScreenSettings } from "../core/storage/SettingsService";
+import { SettingsService } from "../core/storage/SettingsService";
 import { GMScreenView } from "./GMScreenView";
 import { GMScreenViewModel } from "./GMScreenViewModel";
 import { ADD_CARD_COMMAND, CREATE_GM_SCREEN_COMMAND, GM_SCREEN_VIEW_TYPE, OPEN_GM_SCREEN_COMMAND } from "./constants";
-import { GMScreenSettingsTab } from "./settings-tab";
 
 export class GMScreenPlugin extends Plugin {
-	settings: GMScreenSettings = { ...DEFAULT_SETTINGS };
-
 	private settingsService!: SettingsService;
 	private viewModel!: GMScreenViewModel;
 
 	async onload(): Promise<void> {
 		this.settingsService = new SettingsService(this);
-		this.settings = await this.settingsService.load();
+		await this.settingsService.load();
 		this.viewModel = new GMScreenViewModel(this.app, this.settingsService);
 
 		this.registerView(
@@ -64,8 +61,6 @@ export class GMScreenPlugin extends Plugin {
 			}
 		});
 
-		this.addSettingTab(new GMScreenSettingsTab(this.app, this));
-
 		this.registerEvent(this.app.vault.on("create", (file) => this.viewModel.handleVaultFileChanged(file)));
 		this.registerEvent(this.app.vault.on("modify", (file) => this.viewModel.handleVaultFileChanged(file)));
 		this.registerEvent(this.app.vault.on("delete", (file) => this.viewModel.handleVaultFileChanged(file)));
@@ -74,10 +69,6 @@ export class GMScreenPlugin extends Plugin {
 
 	async onunload(): Promise<void> {
 		await this.app.workspace.detachLeavesOfType(GM_SCREEN_VIEW_TYPE);
-	}
-
-	async updateSettings(patch: Partial<GMScreenSettings>): Promise<void> {
-		this.settings = await this.settingsService.update(patch);
 	}
 
 	private async activateView(): Promise<void> {

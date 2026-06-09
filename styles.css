@@ -99,6 +99,227 @@
 	flex-wrap: wrap;
 }
 
+/* ── screen switcher ────────────────────────────────────────────────────── */
+.gm-screen-switcher {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+}
+
+.gm-screen-switcher-trigger {
+	font-weight: var(--font-semibold);
+	color: var(--text-normal);
+	max-width: 220px;
+}
+
+.gm-screen-switcher-name {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gm-screen-switcher-caret {
+	opacity: 0.6;
+	flex-shrink: 0;
+}
+
+.gm-screen-switcher-input {
+	height: 24px;
+	min-width: 140px;
+}
+
+.gm-screen-switcher-file {
+	display: none;
+}
+
+.gm-screen-switcher-menu {
+	position: absolute;
+	top: calc(100% + 6px);
+	left: 0;
+	z-index: 30;
+	min-width: 220px;
+	max-width: 300px;
+	padding: 5px;
+	background: var(--background-secondary);
+	border: 1px solid var(--background-modifier-border);
+	border-radius: var(--gm-radius);
+	box-shadow: var(--shadow-l);
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+}
+
+.gm-screen-switcher-row {
+	display: flex;
+	align-items: center;
+	gap: 2px;
+}
+
+.gm-screen-switcher-row .gm-screen-switcher-item {
+	flex: 1;
+	min-width: 0;
+}
+
+.gm-screen-switcher-row-actions {
+	display: flex;
+	align-items: center;
+	gap: 1px;
+	flex-shrink: 0;
+	width: 0;
+	overflow: hidden;
+	opacity: 0;
+	transition: opacity 0.1s ease;
+}
+
+.gm-screen-switcher-row:hover .gm-screen-switcher-row-actions,
+.gm-screen-switcher-row:focus-within .gm-screen-switcher-row-actions {
+	width: auto;
+	opacity: 1;
+}
+
+.gm-screen-switcher-row-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	width: 26px;
+	height: 26px;
+	padding: 0;
+	border: none;
+	border-radius: var(--gm-radius-s);
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-muted);
+	cursor: pointer;
+}
+
+.gm-screen-switcher-row-btn:hover {
+	background: var(--background-modifier-hover);
+	box-shadow: none;
+	color: var(--text-normal);
+}
+
+.gm-screen-switcher-row-btn--danger:hover {
+	color: var(--text-error);
+}
+
+.gm-screen-switcher-row-btn:disabled {
+	opacity: 0.35;
+	cursor: default;
+}
+
+.gm-screen-switcher-row-btn:disabled:hover {
+	background: transparent;
+	color: var(--text-muted);
+}
+
+.gm-screen-switcher-row-input {
+	flex: 1;
+	height: 30px;
+	min-width: 0;
+}
+
+.gm-screen-switcher-item {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	width: 100%;
+	height: 30px;
+	padding: 0 10px;
+	border: none;
+	border-radius: var(--gm-radius-s);
+	background: transparent;
+	box-shadow: none;
+	color: var(--text-normal);
+	font-size: var(--font-ui-small);
+	font-weight: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.gm-screen-switcher-item:hover,
+.gm-screen-switcher-item:focus-visible {
+	background: var(--background-modifier-hover);
+	box-shadow: none;
+}
+
+.gm-screen-switcher-item svg {
+	width: 15px;
+	height: 15px;
+	flex-shrink: 0;
+	color: var(--text-muted);
+}
+
+.gm-screen-switcher-item--active {
+	color: var(--text-accent);
+	font-weight: var(--font-semibold);
+}
+
+.gm-screen-switcher-check {
+	width: 14px;
+	flex-shrink: 0;
+	color: var(--text-accent);
+}
+
+.gm-screen-switcher-item-name {
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.gm-screen-switcher-item--danger {
+	color: var(--text-error);
+}
+
+.gm-screen-switcher-item--danger svg {
+	color: var(--text-error);
+}
+
+.gm-screen-switcher-item--danger:hover {
+	background: var(--background-modifier-error-hover, var(--background-modifier-hover));
+	color: var(--text-on-accent, var(--text-error));
+}
+
+.gm-screen-switcher-item:disabled {
+	opacity: 0.4;
+	cursor: default;
+}
+
+.gm-screen-switcher-item:disabled:hover {
+	background: transparent;
+}
+
+.gm-screen-switcher-label {
+	padding: 8px 10px 3px;
+	font-size: 10px;
+	font-weight: var(--font-semibold);
+	color: var(--text-faint);
+	text-transform: uppercase;
+	letter-spacing: 0.06em;
+}
+
+.gm-screen-switcher-paste {
+	min-height: 84px;
+	margin: 2px 0;
+	resize: vertical;
+	font-family: var(--font-monospace);
+	font-size: var(--font-ui-smaller);
+}
+
+.gm-screen-switcher-paste-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 6px;
+	margin-top: 2px;
+}
+
+.gm-screen-switcher-sep {
+	height: 1px;
+	margin: 5px 6px;
+	background: var(--background-modifier-border);
+}
+
 /* ── GridStack base (inlined — not auto-imported by Obsidian) ───────────── */
 .grid-stack { position: relative; }
 .grid-stack-placeholder > .placeholder-content {
@@ -1028,10 +1249,38 @@
 }
 
 /* ── note render ────────────────────────────────────────────────────────── */
+.gm-note-card-content {
+	position: relative;
+	flex: 1;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
 .gm-note-render {
 	flex: 1;
 	min-height: 0;
 	overflow: auto;
+}
+
+/* floating "open source note" button, revealed on hover */
+.gm-note-open {
+	position: absolute;
+	top: 2px;
+	right: 2px;
+	z-index: 1;
+	background: var(--background-secondary);
+	opacity: 0;
+	transition: opacity 80ms;
+}
+
+.gm-screen-card:hover .gm-note-open,
+.gm-note-open:focus-visible {
+	opacity: 0.75;
+}
+
+.gm-screen-card:hover .gm-note-open:hover {
+	opacity: 1;
 }
 
 /* ── states ─────────────────────────────────────────────────────────────── */

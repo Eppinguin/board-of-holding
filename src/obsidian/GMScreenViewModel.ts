@@ -6,7 +6,6 @@ import { NoteResolver } from "../core/notes/NoteResolver";
 import { MarkdownRenderService } from "../core/notes/MarkdownRenderService";
 import { SearchService } from "../core/search/SearchService";
 import { GeneratorService } from "../core/random/GeneratorService";
-import { ScreenRepository } from "../core/storage/ScreenRepository";
 import { SettingsService } from "../core/storage/SettingsService";
 import { createId } from "../core/utils/ids";
 import { asErrorMessage } from "../core/utils/errors";
@@ -19,7 +18,6 @@ export class GMScreenViewModel implements GMScreenController {
 
 	private readonly app: App;
 	private readonly settingsService: SettingsService;
-	private readonly screenRepository: ScreenRepository;
 	private readonly noteResolver: NoteResolver;
 	private readonly markdownRenderService: MarkdownRenderService;
 	private readonly searchService: SearchService;
@@ -28,44 +26,33 @@ export class GMScreenViewModel implements GMScreenController {
 	constructor(app: App, settingsService: SettingsService) {
 		this.app = app;
 		this.settingsService = settingsService;
-		this.screenRepository = new ScreenRepository(app);
 		const sectionExtractor = new SectionExtractor();
 		this.noteResolver = new NoteResolver(app, sectionExtractor);
 		this.markdownRenderService = new MarkdownRenderService(app);
-		this.searchService = new SearchService(app, {
-			preferredFolders: settingsService.get().preferredSearchFolders,
-			penalizedFolders: settingsService.get().archiveFolders
-		});
+		this.searchService = new SearchService(app);
 		this.generatorService = new GeneratorService(app, this.noteResolver, sectionExtractor);
 	}
 
 	async loadInitialLayout(): Promise<void> {
-		const settings = this.settingsService.get();
-		await this.screenRepository.ensureLayoutFolder(settings.layoutFolder);
+		const data = this.settingsService.get();
 
-		if (settings.lastOpenedScreenId) {
-			const existing = await this.screenRepository.loadLayoutById(settings.layoutFolder, settings.lastOpenedScreenId);
-			if (existing) {
-				this.layoutStore.setLayout(existing);
-				await this.searchService.rebuildIndex(settings.searchFolders);
-				return;
-			}
+		if (data.lastOpenedScreenId && data.screens[data.lastOpenedScreenId]) {
+			this.layoutStore.setLayout(data.screens[data.lastOpenedScreenId]!);
+			await this.searchService.rebuildIndex();
+			return;
 		}
 
-		const layouts = await this.screenRepository.listLayouts(settings.layoutFolder);
-		const firstLayoutMeta = layouts[0];
-		if (firstLayoutMeta) {
-			const firstLayout = await this.screenRepository.loadLayoutById(settings.layoutFolder, firstLayoutMeta.id);
-			if (firstLayout) {
-				this.layoutStore.setLayout(firstLayout);
-				await this.settingsService.update({ lastOpenedScreenId: firstLayout.id });
-				await this.searchService.rebuildIndex(settings.searchFolders);
-				return;
-			}
+		const screenIds = Object.keys(data.screens);
+		if (screenIds.length > 0) {
+			const firstLayout = data.screens[screenIds[0]!]!;
+			this.layoutStore.setLayout(firstLayout);
+			await this.settingsService.update({ lastOpenedScreenId: firstLayout.id });
+			await this.searchService.rebuildIndex();
+			return;
 		}
 
 		await this.createScreen("GM Screen");
-		await this.searchService.rebuildIndex(settings.searchFolders);
+		await this.searchService.rebuildIndex();
 	}
 
 	async saveLayout(): Promise<void> {
@@ -73,22 +60,23 @@ export class GMScreenViewModel implements GMScreenController {
 		if (!layout) {
 			return;
 		}
-		const folder = this.settingsService.get().layoutFolder;
-		await this.screenRepository.saveLayout(folder, layout);
-		await this.settingsService.update({ lastOpenedScreenId: layout.id });
+		const data = this.settingsService.get();
+		await this.settingsService.update({
+			lastOpenedScreenId: layout.id,
+			screens: { ...data.screens, [layout.id]: layout }
+		});
 	}
 
 	async createScreen(name = "GM Screen"): Promise<void> {
 		const safeName = name.trim() || "GM Screen";
-		const id = this.slugifyName(safeName);
-		const layout = this.screenRepository.createEmptyLayout(safeName, id);
+		const id = this.uniqueScreenId(safeName);
+		const layout: ScreenLayout = { version: 1, id, name: safeName, cards: [] };
 		this.layoutStore.setLayout(layout);
 		await this.saveLayout();
 	}
 
 	async openScreen(id: string): Promise<void> {
-		const folder = this.settingsService.get().layoutFolder;
-		const layout = await this.screenRepository.loadLayoutById(folder, id);
+		const layout = this.settingsService.get().screens[id];
 		if (!layout) {
 			throw new Error(`Screen not found: ${id}`);
 		}
@@ -96,8 +84,106 @@ export class GMScreenViewModel implements GMScreenController {
 		await this.settingsService.update({ lastOpenedScreenId: id });
 	}
 
-	async listScreens(): Promise<{ id: string; name: string; path: string }[]> {
-		return this.screenRepository.listLayouts(this.settingsService.get().layoutFolder);
+	async renameScreen(id: string, name: string): Promise<void> {
+		const data = this.settingsService.get();
+		const layout = data.screens[id];
+		if (!layout) {
+			return;
+		}
+		const safeName = name.trim() || "GM Screen";
+		const updated: ScreenLayout = { ...layout, name: safeName };
+		await this.settingsService.update({ screens: { ...data.screens, [id]: updated } });
+		if (this.layoutStore.getLayout()?.id === id) {
+			this.layoutStore.setLayout(updated);
+		}
+	}
+
+	async deleteScreen(id: string): Promise<void> {
+		const data = this.settingsService.get();
+		if (!data.screens[id]) {
+			return;
+		}
+		const screens = { ...data.screens };
+		delete screens[id];
+		await this.settingsService.update({ screens });
+
+		const remaining = Object.values(screens);
+		if (remaining[0]) {
+			await this.openScreen(remaining[0].id);
+		} else {
+			await this.createScreen("GM Screen");
+		}
+	}
+
+	exportScreen(id: string): string {
+		const layout = this.settingsService.get().screens[id];
+		if (!layout) {
+			throw new Error(`Screen not found: ${id}`);
+		}
+		return JSON.stringify(layout, null, 2);
+	}
+
+	async importScreen(json: string): Promise<void> {
+		const layout = this.parseScreen(json);
+		const newId = this.uniqueScreenId(layout.name);
+		const imported: ScreenLayout = { ...layout, id: newId };
+		this.layoutStore.setLayout(imported);
+		await this.saveLayout();
+	}
+
+	private parseScreen(json: string): ScreenLayout {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(json);
+		} catch {
+			throw new Error("Not valid JSON.");
+		}
+		if (!parsed || typeof parsed !== "object") {
+			throw new Error("Expected a screen object.");
+		}
+		const candidate = parsed as Partial<ScreenLayout>;
+		const name = typeof candidate.name === "string" && candidate.name.trim() ? candidate.name.trim() : "Imported Screen";
+		const rawCards = Array.isArray(candidate.cards) ? candidate.cards : [];
+
+		const cards: ScreenCard[] = [];
+		for (const raw of rawCards) {
+			const card = this.parseCard(raw);
+			if (card) {
+				cards.push(card);
+			}
+		}
+
+		return { version: 1, id: "", name, cards };
+	}
+
+	private parseCard(raw: unknown): ScreenCard | null {
+		if (!raw || typeof raw !== "object") {
+			return null;
+		}
+		const candidate = raw as Partial<ScreenCard>;
+		const type = candidate.type;
+		if (typeof type !== "string" || !this.cardRegistry.isRegistered(type as CardType)) {
+			return null;
+		}
+		const cardType = type as CardType;
+		const toInt = (value: unknown, fallback: number): number =>
+			typeof value === "number" && Number.isFinite(value) ? Math.trunc(value) : fallback;
+		return {
+			id: createId(`card-${cardType}`),
+			type: cardType,
+			x: toInt(candidate.x, 0),
+			y: toInt(candidate.y, 0),
+			w: Math.max(1, toInt(candidate.w, 1)),
+			h: Math.max(1, toInt(candidate.h, 1)),
+			config: this.cardRegistry.validateConfig(cardType, candidate.config)
+		};
+	}
+
+	listScreens(): { id: string; name: string }[] {
+		return Object.values(this.settingsService.get().screens).map((layout) => ({
+			id: layout.id,
+			name: layout.name
+		}));
 	}
 
 	addCard<TType extends CardType>(type: TType, config?: Partial<ScreenCard<TType>["config"]>): void {
@@ -218,25 +304,32 @@ export class GMScreenViewModel implements GMScreenController {
 		return this.layoutStore.getLayout();
 	}
 
-	getLayoutFolder(): string {
-		return this.settingsService.get().layoutFolder;
-	}
-
 	handleVaultFileChanged(file: TAbstractFile): void {
 		try {
-			this.searchService.onVaultFileChanged(file, this.settingsService.get().searchFolders);
+			this.searchService.onVaultFileChanged(file);
 		} catch (error) {
 			new Notice(`GM Screen index update failed: ${asErrorMessage(error)}`);
 		}
 	}
 
-	private slugifyName(name: string): string {
-		const slug = name
-			.trim()
-			.toLocaleLowerCase()
-			.replace(/[^a-z0-9]+/g, "-")
-			.replace(/^-+|-+$/g, "");
-		return slug || createId("screen");
+	private uniqueScreenId(name: string): string {
+		const slug =
+			name
+				.trim()
+				.toLocaleLowerCase()
+				.replace(/[^a-z0-9]+/g, "-")
+				.replace(/^-+|-+$/g, "") || "screen";
+		const existing = this.settingsService.get().screens;
+		if (!existing[slug]) {
+			return slug;
+		}
+		let candidate = slug;
+		let suffix = 2;
+		while (existing[candidate]) {
+			candidate = `${slug}-${suffix}`;
+			suffix += 1;
+		}
+		return candidate;
 	}
 
 	private getNextRow(layout: ScreenLayout): number {

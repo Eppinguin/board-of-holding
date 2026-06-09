@@ -6,23 +6,16 @@ import { createSnippet } from "./SnippetGenerator";
 import type { SearchDocument, SearchResult } from "./SearchTypes";
 import { rerankCandidates } from "./rerank";
 
-export type SearchServiceOptions = {
-	preferredFolders?: string[];
-	penalizedFolders?: string[];
-};
-
 export class SearchService {
 	private readonly app: App;
 	private readonly indexBuilder: SearchIndexBuilder;
 	private readonly miniSearch: MiniSearchProvider;
-	private readonly options: SearchServiceOptions;
 	private indexedDocs: SearchDocument[] = [];
 	private rebuildTimer: number | null = null;
 	private isIndexing = false;
 
-	constructor(app: App, options: SearchServiceOptions = {}) {
+	constructor(app: App) {
 		this.app = app;
-		this.options = options;
 		this.indexBuilder = new SearchIndexBuilder(app);
 		this.miniSearch = new MiniSearchProvider();
 	}
@@ -34,31 +27,31 @@ export class SearchService {
 		};
 	}
 
-	async rebuildIndex(folders: string[] = []): Promise<void> {
+	async rebuildIndex(): Promise<void> {
 		this.isIndexing = true;
 		try {
-			this.indexedDocs = await this.indexBuilder.build(folders);
+			this.indexedDocs = await this.indexBuilder.build([]);
 			this.miniSearch.rebuild(this.indexedDocs);
 		} finally {
 			this.isIndexing = false;
 		}
 	}
 
-	scheduleRebuild(folders: string[] = [], delayMs = 500): void {
+	scheduleRebuild(delayMs = 500): void {
 		if (this.rebuildTimer) {
 			clearTimeout(this.rebuildTimer);
 		}
 		this.rebuildTimer = window.setTimeout(() => {
-			void this.rebuildIndex(folders);
+			void this.rebuildIndex();
 			this.rebuildTimer = null;
 		}, delayMs);
 	}
 
-	onVaultFileChanged(file: TAbstractFile, folders: string[] = []): void {
+	onVaultFileChanged(file: TAbstractFile): void {
 		if (!(file instanceof TFile) || file.extension !== "md") {
 			return;
 		}
-		this.scheduleRebuild(folders);
+		this.scheduleRebuild();
 	}
 
 	search(query: string, config: SearchCardConfig): SearchResult[] {
@@ -66,10 +59,7 @@ export class SearchService {
 		const candidates = this.miniSearch.search(query, limit);
 		const folderFiltered = candidates.filter((candidate) => this.isCandidateIncluded(candidate.doc, config));
 
-		const reranked = rerankCandidates(query, folderFiltered, {
-			preferredFolders: this.options.preferredFolders,
-			penalizedFolders: this.options.penalizedFolders
-		}).slice(0, limit);
+		const reranked = rerankCandidates(query, folderFiltered, {}).slice(0, limit);
 
 		return reranked.map((candidate) => ({
 			doc: candidate.doc,
