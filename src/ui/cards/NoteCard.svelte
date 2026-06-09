@@ -1,22 +1,26 @@
 <script lang="ts">
-	import { onMount } from "svelte";
+	import { onMount, untrack } from "svelte";
 	import type { Component } from "obsidian";
 	import type { ScreenCard } from "../../core/cards/card-types";
 	import { parseNoteTarget } from "../../core/notes/NoteResolver";
 	import type { GMScreenController } from "../controller";
 	import { fileSuggest } from "../suggest";
 
-export let card: ScreenCard<"note">;
-export let controller: GMScreenController;
-export let hostComponent: Component;
-export let editMode = false;
+	const { card, controller, hostComponent, editMode = false }: {
+		card: ScreenCard<"note">;
+		controller: GMScreenController;
+		hostComponent: Component;
+		editMode?: boolean;
+	} = $props();
 
-	const app = controller.getApp();
-	let config = { ...card.config };
-	let renderEl: HTMLDivElement;
-	let error = "";
-	let loading = false;
-	let resolvedPath = "";
+	const app = untrack(() => controller.getApp());
+	let config = $state(untrack(() => ({ ...card.config })));
+	let renderEl: HTMLDivElement = $state(null!);
+	let error = $state("");
+	let loading = $state(false);
+	let resolvedPath = $state("");
+
+	onMount(() => void refresh());
 
 	async function refresh(): Promise<void> {
 		loading = true;

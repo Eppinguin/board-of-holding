@@ -1,9 +1,10 @@
 <script lang="ts">
+	import { untrack } from "svelte";
 	import type { GMScreenController } from "../controller";
 
-	export let controller: GMScreenController;
+	const { controller }: { controller: GMScreenController } = $props();
 
-	const cardDefinitions = controller.cardRegistry.list();
+	const cardDefinitions = untrack(() => controller.cardRegistry.list());
 
 	function addCard(type: string): void {
 		controller.addCard(type as never);

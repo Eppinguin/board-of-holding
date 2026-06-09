@@ -1,22 +1,24 @@
 <script lang="ts">
-	import { tick } from "svelte";
+	import { tick, untrack } from "svelte";
 	import type { Component } from "obsidian";
 	import type { ScreenCard, RandomGeneratorType, RandomGeneratorTypeOverride } from "../../core/cards/card-types";
 	import type { RollEntry, RollResult } from "../../core/random/GeneratorService";
 	import type { GMScreenController } from "../controller";
 	import { fileSuggest } from "../suggest";
 
-	export let card: ScreenCard<"random">;
-	export let controller: GMScreenController;
-	export let hostComponent: Component;
-	export let editMode = false;
+	const { card, controller, hostComponent, editMode = false }: {
+		card: ScreenCard<"random">;
+		controller: GMScreenController;
+		hostComponent: Component;
+		editMode?: boolean;
+	} = $props();
 
-	const app = controller.getApp();
+	const app = untrack(() => controller.getApp());
 
 	// Measured width of the result area, used to switch between a wide table
 	// layout and a narrow stacked-card layout. Bound via bind:clientWidth so it
 	// stays current as the card is resized.
-	let resultWidth = 0;
+	let resultWidth = $state(0);
 
 	const TYPE_LABELS: Record<RandomGeneratorType, string> = {
 		list: "list item",
@@ -25,43 +27,47 @@
 		files: "file"
 	};
 
-	let config = { ...card.config };
-	let result: RollResult | null = null;
-	let history: RollResult[] = [];
-	let error = "";
-	let rolling = false;
+	let config = $state(untrack(() => ({ ...card.config })));
+	let result: RollResult | null = $state(null);
+	let history: RollResult[] = $state([]);
+	let error = $state("");
+	let rolling = $state(false);
 	// auto-detected type (ignoring the override); null while loading or on error
-	let autoDetected: RandomGeneratorType | null = null;
+	let autoDetected: RandomGeneratorType | null = $state(null);
 	// The type that will actually run (override ?? autoDetected)
-	let detected: RandomGeneratorType | null = null;
+	let detected: RandomGeneratorType | null = $state(null);
+	// Types that are actually present in the source (gates the override buttons).
+	let availableTypes: Set<RandomGeneratorType> = $state(new Set());
 	// Column headers of the source table, for the column picker in edit mode.
-	let availableColumns: string[] = [];
+	let availableColumns: string[] = $state([]);
 
-	$: ready = config.source.trim().length > 0 || config.folder.trim().length > 0;
-	$: displayLabel = config.label.trim() || (detected ? TYPE_LABELS[detected] : "result");
+	const ready = $derived(config.source.trim().length > 0 || config.folder.trim().length > 0);
+	const displayLabel = $derived(config.label.trim() || (detected ? TYPE_LABELS[detected] : "result"));
 
 	// When a roll returns several table rows, render them as a single table so the
 	// column headers only appear once.
 	type TableRowEntry = Extract<RollEntry, { kind: "table-row" }>;
-	$: tableRows = (result?.entries ?? []).filter(
-		(e): e is TableRowEntry => e.kind === "table-row"
+	const tableRows = $derived(
+		(result?.entries ?? []).filter((e): e is TableRowEntry => e.kind === "table-row")
 	);
-	$: isTableResult = tableRows.length > 0 && tableRows.length === (result?.entries.length ?? 0);
-	$: hasTitleColumn = tableRows.some((row) => Boolean(row.title));
+	const isTableResult = $derived(tableRows.length > 0 && tableRows.length === (result?.entries.length ?? 0));
+	const hasTitleColumn = $derived(tableRows.some((row) => Boolean(row.title)));
 	// Column headers, taken from the first row (rows from one source share columns).
-	$: fieldHeaders = tableRows[0]?.fields.map((f) => f.header) ?? [];
+	const fieldHeaders = $derived(tableRows[0]?.fields.map((f) => f.header) ?? []);
 	// Width the wide table needs before it would start cramping: ~100px per data
 	// column plus the fixed-width title column. Below this the rows stack instead.
-	$: tableMinWidth = fieldHeaders.length * 100 + (hasTitleColumn ? 90 : 0);
+	const tableMinWidth = $derived(fieldHeaders.length * 100 + (hasTitleColumn ? 90 : 0));
 	// Default to stacked until measured (avoids a wide-table flash on a narrow card).
-	$: useTableLayout = resultWidth > 0 && resultWidth >= tableMinWidth;
+	const useTableLayout = $derived(resultWidth > 0 && resultWidth >= tableMinWidth);
 
 	// True once the effective type is a table — gates the table-only settings.
-	$: isTableSource = detected === "table";
+	const isTableSource = $derived(detected === "table");
 
 	// Re-detect what the source points at whenever it changes (best-effort, for
 	// the hint, button label, and column picker).
-	$: void detect(config.source, config.folder, config.generatorType);
+	$effect(() => {
+		void detect(config.source, config.folder, config.generatorType);
+	});
 
 	async function detect(
 		_source: string,
@@ -75,11 +81,19 @@
 			return;
 		}
 		try {
-			autoDetected = await controller.detectGenerator(config);
-			detected = await controller.resolveGeneratorType(config);
+			const available = await controller.detectAvailableTypes(config);
+			availableTypes = new Set(available);
+			autoDetected = available[0] ?? null;
+			// Clear a stale override if the new source no longer supports it.
+			if (config.generatorType && !availableTypes.has(config.generatorType)) {
+				config.generatorType = null;
+				saveConfig();
+			}
+			detected = config.generatorType ?? autoDetected;
 		} catch {
 			autoDetected = null;
 			detected = null;
+			availableTypes = new Set();
 		}
 		availableColumns = detected === "table" ? await controller.getTableColumns(config) : [];
 	}
@@ -189,13 +203,17 @@
 			</span>
 		{/if}
 
-		{#if ready}
+		{#if ready && availableTypes.size > 0}
 			<span class="gm-field-label">Generator</span>
 			<div class="gm-segmented gm-segmented--wrap">
 				<button type="button" class="gm-segmented-btn" class:is-active={config.generatorType === null}
 					onclick={() => { config.generatorType = null; saveConfig(); }}>Auto</button>
 				{#each (["list", "table", "sections", "files"] as const) as type}
-					<button type="button" class="gm-segmented-btn" class:is-active={config.generatorType === type}
+					<button
+						type="button"
+						class="gm-segmented-btn"
+						class:is-active={config.generatorType === type}
+						disabled={!availableTypes.has(type)}
 						onclick={() => { config.generatorType = type; saveConfig(); }}
 					>{type[0].toUpperCase() + type.slice(1)}</button>
 				{/each}

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onDestroy, onMount, tick } from "svelte";
+	import { onDestroy, onMount, tick, untrack } from "svelte";
 	import type { Component } from "obsidian";
 	import type { ScreenCard, ScreenLayout } from "../core/cards/card-types";
 	import { GridLayoutAdapter } from "../core/layout/GridLayoutAdapter";
@@ -7,20 +7,22 @@
 	import CardShell from "./CardShell.svelte";
 	import CardSettingsModal from "./components/CardSettingsModal.svelte";
 
-export let controller: GMScreenController;
-export let hostComponent: Component;
-export let layoutLocked = false;
-export let editMode = false;
+	const { controller, hostComponent, layoutLocked = false, editMode = false }: {
+		controller: GMScreenController;
+		hostComponent: Component;
+		layoutLocked?: boolean;
+		editMode?: boolean;
+	} = $props();
 
-	let layout: ScreenLayout | null = controller.getActiveLayout();
-	let gridEl: HTMLDivElement;
-	let gridAdapter: GridLayoutAdapter | null = null;
-	let configModalCard: ScreenCard | null = null;
+	let layout: ScreenLayout | null = $state(untrack(() => controller.getActiveLayout()));
+	let gridEl: HTMLDivElement = $state(null!);
+	let gridAdapter: GridLayoutAdapter | null = $state(null);
+	let configModalCard: ScreenCard | null = $state(null);
 
-	const unsubscribe = controller.layoutStore.subscribe((value) => {
+	const unsubscribe = untrack(() => controller.layoutStore.subscribe((value) => {
 		layout = value;
 		void syncGrid();
-	});
+	}));
 
 	async function syncGrid(): Promise<void> {
 		if (!gridAdapter || !layout) {
@@ -41,9 +43,11 @@ export let editMode = false;
 		void syncGrid();
 	});
 
-	$: if (gridAdapter) {
-		gridAdapter.setLocked(layoutLocked);
-	}
+	$effect(() => {
+		if (gridAdapter) {
+			gridAdapter.setLocked(layoutLocked);
+		}
+	});
 
 	onDestroy(() => {
 		unsubscribe();
@@ -90,8 +94,8 @@ export let editMode = false;
 								onRemove={() => removeCard(card.id)}
 								onEdit={() => openSettings(card)}
 							>
-								<svelte:component
-									this={getCardComponent(card.type)}
+								{@const CardComponent = getCardComponent(card.type)}
+								<CardComponent
 									{card}
 									{controller}
 									{hostComponent}

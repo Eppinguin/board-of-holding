@@ -1,14 +1,17 @@
 <script lang="ts">
+	import { untrack } from "svelte";
 	import type { ScreenCard } from "../../core/cards/card-types";
 	import type { GMScreenController } from "../controller";
 
-export let card: ScreenCard<"webEmbed">;
-export let controller: GMScreenController;
-export let editMode = false;
+	const { card, controller, editMode = false }: {
+		card: ScreenCard<"webEmbed">;
+		controller: GMScreenController;
+		editMode?: boolean;
+	} = $props();
 
-	let config = { ...card.config };
-	let frameKey = 0;
-	let error = "";
+	let config = $state(untrack(() => ({ ...card.config })));
+	let frameKey = $state(0);
+	let error = $state("");
 
 	function saveConfig(): void {
 		config = {

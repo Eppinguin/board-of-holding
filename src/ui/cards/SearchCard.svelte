@@ -1,24 +1,26 @@
 <script lang="ts">
-	import { tick, onDestroy } from "svelte";
+	import { tick, onDestroy, untrack } from "svelte";
 	import type { Component } from "obsidian";
 	import type { ScreenCard } from "../../core/cards/card-types";
 	import type { SearchResult } from "../../core/search/SearchTypes";
 	import type { GMScreenController } from "../controller";
 	import { folderSuggest } from "../suggest";
 
-export let card: ScreenCard<"search">;
-export let controller: GMScreenController;
-export let hostComponent: Component;
-export let editMode = false;
+	const { card, controller, hostComponent, editMode = false }: {
+		card: ScreenCard<"search">;
+		controller: GMScreenController;
+		hostComponent: Component;
+		editMode?: boolean;
+	} = $props();
 
-	const app = controller.getApp();
-	let config = { ...card.config };
-	let foldersInput = config.folders.join(", ");
-	let query = "";
-	let results: SearchResult[] = [];
-	let searched = false;
-	let error = "";
-	let expandedId: string | null = null;
+	const app = untrack(() => controller.getApp());
+	let config = $state(untrack(() => ({ ...card.config })));
+	let foldersInput = $state(untrack(() => config.folders.join(", ")));
+	let query = $state("");
+	let results: SearchResult[] = $state([]);
+	let searched = $state(false);
+	let error = $state("");
+	let expandedId: string | null = $state(null);
 	let debounceTimer: number | null = null;
 	const renderEls: Record<string, HTMLDivElement> = {};
 

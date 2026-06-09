@@ -4,11 +4,10 @@
 	import CardPalette from "./components/CardPalette.svelte";
 	import type { GMScreenController } from "./controller";
 
-	export let controller: GMScreenController;
-	export let hostComponent: Component;
+	const { controller, hostComponent }: { controller: GMScreenController; hostComponent: Component } = $props();
 
-	let editMode = false;
-	$: layoutLocked = !editMode;
+	let editMode = $state(false);
+	const layoutLocked = $derived(!editMode);
 </script>
 
 <div class="gm-screen-app">

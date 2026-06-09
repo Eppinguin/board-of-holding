@@ -1,11 +1,15 @@
 <script lang="ts">
-	export let title: string;
-	export let config: unknown;
-	export let onSave: (value: unknown) => void;
-	export let onClose: () => void;
+	import { untrack } from "svelte";
 
-	let draft = JSON.stringify(config, null, 2);
-	let error = "";
+	const { title, config, onSave, onClose }: {
+		title: string;
+		config: unknown;
+		onSave: (value: unknown) => void;
+		onClose: () => void;
+	} = $props();
+
+	let draft = $state(untrack(() => JSON.stringify(config, null, 2)));
+	let error = $state("");
 
 	function tryClose(): void {
 		try {

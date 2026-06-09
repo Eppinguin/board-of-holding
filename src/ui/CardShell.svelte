@@ -1,8 +1,13 @@
 <script lang="ts">
-export let title: string;
-export let editMode = false;
-export let onRemove: () => void;
-export let onEdit: () => void;
+	import type { Snippet } from "svelte";
+
+	const { title, editMode = false, onRemove, onEdit, children }: {
+		title: string;
+		editMode?: boolean;
+		onRemove: () => void;
+		onEdit: () => void;
+		children: Snippet;
+	} = $props();
 </script>
 
 <div class="gm-screen-card">
@@ -22,6 +27,6 @@ export let onEdit: () => void;
 		{/if}
 	</div>
 	<div class="gm-screen-card-body">
-		<slot />
+		{@render children()}
 	</div>
 </div>
